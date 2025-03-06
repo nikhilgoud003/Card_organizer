@@ -38,5 +38,83 @@ class DatabaseHelper {
         FOREIGN KEY (folder_id) REFERENCES folders (id) ON DELETE CASCADE
       )
     ''');
+
+    // Insert default folders when the database is created
+    await _insertDefaultFolders(db);
+  }
+
+  Future<void> _insertDefaultFolders(Database db) async {
+    List<String> folderNames = ["Hearts", "Spades", "Diamonds", "Clubs"];
+
+    for (String name in folderNames) {
+      await db.insert(
+        'folders',
+        {'name': name},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+  }
+
+  // CRUD Operations for Cards
+  Future<int> addCard(
+      String name, String suit, String imageUrl, int folderId) async {
+    final db = await instance.database;
+    return await db.insert(
+      'cards',
+      {
+        'name': name,
+        'suit': suit,
+        'image_url': imageUrl,
+        'folder_id': folderId
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getCards(int folderId) async {
+    final db = await instance.database;
+    return await db
+        .query('cards', where: 'folder_id = ?', whereArgs: [folderId]);
+  }
+
+  Future<int> updateCard(
+      int id, String name, String suit, String imageUrl, int folderId) async {
+    final db = await instance.database;
+    return await db.update(
+      'cards',
+      {
+        'name': name,
+        'suit': suit,
+        'image_url': imageUrl,
+        'folder_id': folderId
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> deleteCard(int id) async {
+    final db = await instance.database;
+    return await db.delete('cards', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // CRUD Operations for Folders
+  Future<int> addFolder(String name) async {
+    final db = await instance.database;
+    return await db.insert(
+      'folders',
+      {'name': name},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getFolders() async {
+    final db = await instance.database;
+    return await db.query('folders');
+  }
+
+  Future<int> deleteFolder(int id) async {
+    final db = await instance.database;
+    return await db.delete('folders', where: 'id = ?', whereArgs: [id]);
   }
 }
