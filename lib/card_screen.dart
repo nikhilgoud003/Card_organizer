@@ -14,6 +14,8 @@ class CardScreen extends StatefulWidget {
 
 class _CardScreenState extends State<CardScreen> {
   List<Map<String, dynamic>> _cards = [];
+  bool _isCardLimitReached = false;
+  bool _hasSufficientCards = false;
 
   @override
   void initState() {
@@ -25,10 +27,43 @@ class _CardScreenState extends State<CardScreen> {
     final data = await DatabaseHelper.instance.getCards(widget.folderId);
     setState(() {
       _cards = data;
+      _isCardLimitReached = _cards.length >= 6;
+      _hasSufficientCards = _cards.length >= 3;
     });
   }
 
+  Future<void> _showErrorDialog(String message) async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Warning"),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _checkCardLimits() {
+    if (!_hasSufficientCards) {
+      _showErrorDialog("You need at least 3 cards in this folder.");
+    }
+  }
+
   Future<void> _addCard() async {
+    if (_isCardLimitReached) {
+      await _showErrorDialog("This folder can only hold 6 cards.");
+      return;
+    }
+
     TextEditingController nameController = TextEditingController();
     TextEditingController suitController = TextEditingController();
     TextEditingController imageUrlController = TextEditingController();
@@ -125,14 +160,36 @@ class _CardScreenState extends State<CardScreen> {
   }
 
   Future<void> _deleteCard(int id) async {
+    if (_cards.length <= 3) {
+      await _showErrorDialog("You need at least 3 cards in this folder.");
+      return;
+    }
+
     await DatabaseHelper.instance.deleteCard(id);
     _loadCards();
   }
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCardLimits();
+    });
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.folderName)),
+      appBar: AppBar(
+        title: Text(widget.folderName),
+        actions: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(
+                "${_cards.length}/6 cards",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: ListView.builder(
         padding: EdgeInsets.all(10),
         itemCount: _cards.length,
@@ -169,6 +226,7 @@ class _CardScreenState extends State<CardScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _addCard,
+        backgroundColor: _isCardLimitReached ? Colors.grey : null,
         child: Icon(Icons.add),
       ),
     );
